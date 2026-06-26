@@ -540,6 +540,78 @@
   }
   .required-note span { color: var(--pnp-red); }
 </style>
+
+<!-- SEGUIMIENTO STYLES -->
+<style>
+  /* ── SEGUIMIENTO SCREEN ── */
+  .seg-screen { display:none; }
+  .seg-btn {
+    width:100%; padding:13px; margin-top:10px;
+    background: white;
+    border: 2px solid #1A6B35;
+    border-radius:12px;
+    font-family:'Inter',sans-serif; font-size:14px; font-weight:700;
+    color:#1A6B35; cursor:pointer; transition:all 0.2s;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .seg-btn:hover { background:#EAF5EE; }
+  .status-card {
+    border-radius:14px; padding:18px 16px; margin-bottom:14px;
+    border: 2px solid var(--border);
+  }
+  .status-badge {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:5px 14px; border-radius:20px;
+    font-size:12px; font-weight:700; letter-spacing:0.05em;
+    text-transform:uppercase; margin-bottom:12px;
+  }
+  .status-recibido   { background:#FFF8E1; color:#B8860B; border:1.5px solid #F5C842; }
+  .status-evaluacion { background:#E3F0FF; color:#1A4B9C; border:1.5px solid #7EB3F7; }
+  .status-atencion   { background:#FFF0E0; color:#CC5500; border:1.5px solid #FFA040; }
+  .status-atendido   { background:#E6F7ED; color:#1A6B35; border:1.5px solid #5DBF82; }
+  .status-notfound   { background:#FFF0F0; color:#C8102E; border:1.5px solid #E88; }
+  .timeline { margin-top:14px; }
+  .tl-item {
+    display:flex; gap:12px; padding:8px 0;
+    border-bottom:1px solid #eef2ee; font-size:12px;
+  }
+  .tl-dot {
+    width:10px; height:10px; border-radius:50%;
+    flex-shrink:0; margin-top:3px;
+  }
+  .tl-dot.done  { background:#1A6B35; }
+  .tl-dot.active{ background:#F5A623; }
+  .tl-dot.pend  { background:#ccc; }
+  .tl-label { font-weight:600; color:#0D1F0F; }
+  .tl-time  { color:#888; font-size:11px; margin-top:2px; }
+  .seg-input-row { display:flex; gap:8px; margin-top:14px; }
+  .seg-input-row input {
+    flex:1; padding:12px 14px;
+    border:1.5px solid var(--border); border-radius:10px;
+    font-family:'Inter',sans-serif; font-size:15px; font-weight:700;
+    text-transform:uppercase; letter-spacing:0.08em;
+    background:#EEF6F1; color:#0D1F0F;
+  }
+  .seg-input-row input:focus { outline:none; border-color:#1A6B35; background:white; }
+  .seg-search-btn {
+    padding:12px 18px; background:#1A6B35; color:white;
+    border:none; border-radius:10px; font-family:'Inter',sans-serif;
+    font-size:14px; font-weight:700; cursor:pointer; transition:all 0.2s;
+    white-space:nowrap;
+  }
+  .seg-search-btn:hover { background:#0F3320; }
+  .detail-row {
+    display:flex; gap:8px; padding:7px 0;
+    border-bottom:1px solid #eef2ee; font-size:12px;
+  }
+  .detail-label { font-weight:700; color:#4A6255; flex:0 0 100px; text-transform:uppercase; font-size:10px; letter-spacing:0.04em; padding-top:1px; }
+  .detail-value { color:#0D1F0F; flex:1; line-height:1.4; }
+</style>
+<!-- EmailJS SDK -->
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script type="text/javascript">
+  emailjs.init({ publicKey: "-FQBhO5qyX0KKPwe5" });
+</script>
 </head>
 <body>
 
@@ -570,6 +642,13 @@
 </div>
 
 <div class="container">
+
+  <!-- CONSULTAR REPORTE LINK -->
+  <div style="text-align:right; padding:10px 0 0;">
+    <button onclick="showSeguimiento()" style="background:none; border:none; color:#1A6B35; font-size:12px; font-weight:700; cursor:pointer; text-decoration:underline; font-family:'Inter',sans-serif;">
+      🔍 ¿Ya enviaste un reporte? Consulta su estado
+    </button>
+  </div>
 
   <!-- STEP DOTS -->
   <div class="step-indicator">
@@ -852,6 +931,28 @@
     </p>
 
     <button class="new-report-btn" onclick="resetForm()">+ Enviar otro reporte</button>
+    <button class="seg-btn" style="margin-top:14px; max-width:340px; margin-left:auto; margin-right:auto;" onclick="showSeguimientoFromSuccess()">🔍 Consultar estado de mi reporte</button>
+  </div>
+
+  <!-- ════════════════════════════ SEGUIMIENTO SCREEN ════════════════════════════ -->
+  <div class="seg-screen" id="segScreen">
+
+    <div class="card" style="margin-top:16px;">
+      <div class="page-title">🔍 Consultar mi reporte</div>
+      <div class="page-subtitle">Ingresa el código que recibiste al enviar tu reporte para ver su estado actual.</div>
+
+      <div class="seg-input-row">
+        <input type="text" id="segCodigo" placeholder="SAM-XXXXXX" maxlength="10"
+               oninput="this.value=this.value.toUpperCase()"
+               onkeydown="if(event.key==='Enter') buscarReporte()">
+        <button class="seg-search-btn" onclick="buscarReporte()">Buscar</button>
+      </div>
+
+      <div id="segResultado" style="margin-top:16px;"></div>
+
+      <button class="seg-btn" style="margin-top:16px;" onclick="volverInicio()">← Volver al inicio</button>
+    </div>
+
   </div>
 
 </div>
@@ -1053,19 +1154,199 @@
   }
 
   // ── SUBMIT ──
+  // ── Colegios label map (used in email too) ──
+  const colegioNombres = {
+    juana_alarco_sec: 'IE 6050 Embl. Juana Alarco de Dammert (Secundaria)',
+    juana_alarco_pri: 'IE 6050 Embl. Juana Alarco de Dammert (Primaria)',
+    juana_alarco_ini: 'IE Embl. 6050 Juana Alarco de Dammert (Inicial)',
+    villarreal: 'IE Federico Villarreal',
+    markham: 'IEP Markham College',
+    cebe4: 'CEBE 4 Miraflores',
+    elizabeth: 'IE 42 Elizabeth Espejo de Marroquín',
+    nsc_pri: 'IEP Nuestra Señora del Carmen (Primaria)',
+    nsc_sec: 'IEP Nuestra Señora del Carmen (Secundaria)',
+    santa_rita: 'IEP Santa Rita de Casia',
+    mercedes: 'IEP María de las Mercedes',
+    idiomas_pucp: 'Idiomas PUCP - Miraflores',
+    otro: 'Otro'
+  };
+
   function submitReport() {
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
-    btn.textContent = '⏳ Enviando...';
+    btn.innerHTML = '⏳ Enviando de forma segura...';
 
-    // Simulate send (in production, replace with real endpoint)
-    setTimeout(() => {
-      const ticketNum = 'SAM-' + Math.random().toString(36).substr(2,6).toUpperCase();
-      document.getElementById('ticketId').textContent = ticketNum;
-      document.getElementById('formScreen').style.display = 'none';
-      document.getElementById('successScreen').style.display = 'block';
-      window.scrollTo({top: 0, behavior: 'smooth'});
-    }, 1800);
+    const ticketNum = 'SAM-' + Math.random().toString(36).substr(2,6).toUpperCase();
+    const ahora = new Date();
+    const fechaHora = ahora.toLocaleDateString('es-PE') + ' ' + ahora.toLocaleTimeString('es-PE');
+    const nivelLabel = state.nivel === 'primaria' ? 'Primaria' : state.nivel === 'secundaria' ? 'Secundaria' : state.nivel;
+    const urgLabel = { baja:'🟢 BAJA', media:'🟡 MEDIA', alta:'🔴 ALTA — Necesito ayuda ya' }[state.urgency] || state.urgency;
+    const locLabel = { aula:'En el aula', patio:'En el patio', sshh:'En los baños', afuera:'Afuera del colegio', digital:'En internet / Redes', casa:'En casa' }[state.ubicacion] || state.ubicacion || '—';
+    const catLabelsMap = {
+      bullying:'Bullying / Acoso escolar', cyber:'Ciberbullying / Acoso digital',
+      drogas:'Drogas / Sustancias ilícitas', acoso:'Acoso sexual / Tocamientos',
+      violencia:'Amenaza de violencia / Armas', extorsion:'Extorsión / Robo / Cobro de cupos',
+      familia:'Violencia familiar', otro:'Otro tipo de problema'
+    };
+    const categoriasStr = state.categorias.map(c => catLabelsMap[c] || c).join(' | ');
+
+    const templateParams = {
+      to_email:    'sanantoniomiraflores@gmail.com',
+      ticket_id:   ticketNum,
+      fecha_hora:  fechaHora,
+      identidad:   state.identity === 'anon' ? 'ANONIMO/A' : 'Con nombre',
+      nombre:      state.nombre || '-',
+      colegio:     colegioNombres[state.colegio] || state.colegio || '-',
+      nivel:       nivelLabel || '-',
+      grado:       (state.grado || '-') + 'o',
+      seccion:     state.seccion || '-',
+      contacto:    state.contacto || '-',
+      categorias:  categoriasStr || '-',
+      urgencia:    urgLabel,
+      ubicacion:   locLabel,
+      cuando:      state.cuando || '-',
+      descripcion: state.descripcion || '-'
+    };
+
+    // Save to localStorage for follow-up tracking
+    const reporteGuardado = {
+      ticket: ticketNum,
+      fecha: fechaHora,
+      colegio: colegioNombres[state.colegio] || '—',
+      nivel: nivelLabel, grado: state.grado, seccion: state.seccion,
+      categorias: categoriasStr,
+      urgencia: state.urgency,
+      descripcion: state.descripcion.substring(0, 80) + (state.descripcion.length > 80 ? '...' : ''),
+      estado: 'recibido',
+      timeline: [
+        { estado: 'Reporte recibido', tiempo: fechaHora, done: true }
+      ]
+    };
+    try {
+      const reportes = JSON.parse(localStorage.getItem('pnp_reportes') || '{}');
+      reportes[ticketNum] = reporteGuardado;
+      localStorage.setItem('pnp_reportes', JSON.stringify(reportes));
+    } catch(e) {}
+
+    emailjs.send('service_lk6rhqi', 'template_vlhmf3r', templateParams)
+      .then(function() {
+        document.getElementById('ticketId').textContent = ticketNum;
+        document.getElementById('formScreen').style.display = 'none';
+        document.getElementById('successScreen').style.display = 'block';
+        window.scrollTo({top: 0, behavior: 'smooth'});
+      }, function(error) {
+        btn.disabled = false;
+        btn.innerHTML = '🛡️ Enviar mi reporte de forma segura';
+        const errMsg = error && error.text ? error.text : JSON.stringify(error);
+        alert('ERROR AL ENVIAR: ' + errMsg + '\n\nSi persiste, llama al 959048332.');
+        console.error('EmailJS error:', error);
+      });
+  }
+
+  // ── SEGUIMIENTO FUNCTIONS ──
+  function showSeguimiento() {
+    document.getElementById('formScreen').style.display = 'none';
+    document.getElementById('successScreen').style.display = 'none';
+    document.getElementById('segScreen').style.display = 'block';
+    document.getElementById('segResultado').innerHTML = '';
+    document.getElementById('segCodigo').value = '';
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  }
+
+  function showSeguimientoFromSuccess() {
+    const ticket = document.getElementById('ticketId').textContent;
+    document.getElementById('successScreen').style.display = 'none';
+    document.getElementById('segScreen').style.display = 'block';
+    document.getElementById('segCodigo').value = ticket;
+    buscarReporte();
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  }
+
+  function volverInicio() {
+    document.getElementById('segScreen').style.display = 'none';
+    document.getElementById('formScreen').style.display = 'block';
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  }
+
+  function buscarReporte() {
+    const codigo = document.getElementById('segCodigo').value.trim().toUpperCase();
+    const resultDiv = document.getElementById('segResultado');
+
+    if (!codigo || codigo.length < 6) {
+      resultDiv.innerHTML = '<div class="status-card"><div class="status-badge status-notfound">⚠️ Código inválido</div><p style="font-size:13px;color:#666;">Ingresa el código completo que recibiste, ej: SAM-X7KF2A</p></div>';
+      return;
+    }
+
+    // Try localStorage first
+    let reporte = null;
+    try {
+      const reportes = JSON.parse(localStorage.getItem('pnp_reportes') || '{}');
+      reporte = reportes[codigo] || null;
+    } catch(e) {}
+
+    if (!reporte) {
+      resultDiv.innerHTML = `
+        <div class="status-card">
+          <div class="status-badge status-notfound">❌ No encontrado</div>
+          <p style="font-size:13px;color:#555;line-height:1.6;">
+            No se encontró el código <strong>${codigo}</strong>.<br><br>
+            Posibles razones:<br>
+            • El código fue ingresado desde otro dispositivo<br>
+            • El código fue escrito incorrectamente<br><br>
+            Si el problema persiste, llama directamente a la comisaría:<br>
+            <strong style="color:#1A6B35;">📞 959048332 / 957649771</strong>
+          </p>
+        </div>`;
+      return;
+    }
+
+    const estadoConfig = {
+      recibido:   { badge:'status-recibido',   icon:'🟡', label:'Recibido',      texto:'Tu reporte fue recibido por el Oficial de Permanencia.' },
+      evaluacion: { badge:'status-evaluacion', icon:'🔵', label:'En evaluación', texto:'El oficial policial está revisando tu caso.' },
+      atencion:   { badge:'status-atencion',   icon:'🟠', label:'En atención',   texto:'Se está tomando acción sobre tu reporte.' },
+      atendido:   { badge:'status-atendido',   icon:'🟢', label:'Atendido',      texto:'Tu caso fue atendido. Gracias por tu confianza.' }
+    };
+    const cfg = estadoConfig[reporte.estado] || estadoConfig['recibido'];
+
+    const pasos = [
+      { key:'recibido',   label:'Reporte recibido',   tiempo: reporte.timeline?.[0]?.tiempo || reporte.fecha },
+      { key:'evaluacion', label:'En evaluación policial', tiempo: reporte.timeline?.[1]?.tiempo || '' },
+      { key:'atencion',   label:'En atención activa', tiempo: reporte.timeline?.[2]?.tiempo || '' },
+      { key:'atendido',   label:'Caso atendido',      tiempo: reporte.timeline?.[3]?.tiempo || '' }
+    ];
+    const estadoIdx = ['recibido','evaluacion','atencion','atendido'].indexOf(reporte.estado);
+
+    const timelineHTML = pasos.map((p, i) => {
+      let dotClass = i < estadoIdx ? 'done' : i === estadoIdx ? 'active' : 'pend';
+      return `<div class="tl-item">
+        <div class="tl-dot ${dotClass}"></div>
+        <div>
+          <div class="tl-label" style="color:${i <= estadoIdx ? '#0D1F0F' : '#aaa'}">${p.label}</div>
+          ${p.tiempo ? `<div class="tl-time">${p.tiempo}</div>` : '<div class="tl-time" style="color:#ccc">Pendiente</div>'}
+        </div>
+      </div>`;
+    }).join('');
+
+    resultDiv.innerHTML = `
+      <div class="status-card">
+        <div class="status-badge ${cfg.badge}">${cfg.icon} ${cfg.label}</div>
+        <p style="font-size:13px;color:#444;margin-bottom:14px;">${cfg.texto}</p>
+
+        <div class="detail-row"><span class="detail-label">Ticket</span><span class="detail-value" style="font-weight:800;letter-spacing:0.08em;">${codigo}</span></div>
+        <div class="detail-row"><span class="detail-label">Fecha</span><span class="detail-value">${reporte.fecha}</span></div>
+        <div class="detail-row"><span class="detail-label">Colegio</span><span class="detail-value">${reporte.colegio}</span></div>
+        <div class="detail-row"><span class="detail-label">Nivel</span><span class="detail-value">${reporte.nivel || '—'} · ${reporte.grado || '—'}° · Sección ${reporte.seccion || '—'}</span></div>
+        <div class="detail-row"><span class="detail-label">Tipo</span><span class="detail-value">${reporte.categorias}</span></div>
+        <div class="detail-row"><span class="detail-label">Descripción</span><span class="detail-value">${reporte.descripcion}</span></div>
+
+        <div class="section-label" style="margin-top:16px;">Seguimiento del caso</div>
+        <div class="timeline">${timelineHTML}</div>
+      </div>
+
+      <div class="info-box" style="margin-top:10px;">
+        <span class="info-icon">📞</span>
+        <span>¿Necesitas hablar con un oficial? Llama al <strong style="color:#1A6B35;">959048332</strong> o <strong style="color:#1A6B35;">957649771</strong></span>
+      </div>`;
   }
 
   // ── RESET ──
